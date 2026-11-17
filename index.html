@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 TV Summit EPG - Commercial & Technical Tracks</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a1f26;
+      --border: #2d3748;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --commercial: #3b82f6;
+      --technical: #10b981;
+      --current: #f59e0b;
+      --break: #f97316;
+      --now-bg: rgba(245, 158, 11, 0.15);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; }
+    .now-banner {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: var(--now-bg);
+      border: 1px solid var(--current);
+      border-radius: 8px;
+      font-weight: 500;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+      flex-wrap: wrap;
+    }
+    button, select {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    button.active { background: var(--commercial); border-color: var(--commercial); }
+    button.active.tech { background: var(--technical); border-color: var(--technical); }
+    .epg-container {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.5rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #111827;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-weight: 600;
+    }
+    th.time-col { width: 110px; text-align: center; }
+    th.commercial { color: #93c5fd; }
+    th.technical { color: #6ee7b7; }
+    .time-cell {
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      background: #111827;
+      white-space: nowrap;
+    }
+    .session {
+      font-size: 0.85rem;
+      line-height: 1.3;
+    }
+    .session.break { color: var(--break); font-style: italic; }
+    .session.current {
+      background: var(--now-bg);
+      border-left: 3px solid var(--current);
+      font-weight: 600;
+    }
+    .duration { color: var(--muted); font-size: 0.75rem; }
+
+    /* Mobile: stack into cards, no horizontal scroll */
+    @media (max-width: 640px) {
+      body { padding: 0.5rem; }
+      h1 { font-size: 1.25rem; }
+      .epg-container { border: none; background: transparent; overflow: visible; }
+      table, thead, tbody, tr, th, td { display: block; width: 100%; }
+      thead { display: none; }
+      table { min-width: 0; }
+      tr {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem 0;
+      }
+      .time-cell {
+        background: transparent;
+        font-size: 1.05rem;
+        padding: 0.4rem 0.75rem 0.2rem;
+        text-align: left;
+      }
+      td.session {
+        padding: 0.35rem 0.75rem;
+        border: none;
+      }
+      td.session::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 0.15rem;
+      }
+      td.session:nth-of-type(2)::before { content: "Commercial"; color: #93c5fd; }
+      td.session:nth-of-type(3)::before { content: "Technical"; color: #6ee7b7; }
+      .session.current { border-left: none; border-radius: 6px; }
+    }
+    .day-tabs {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    .day-tabs button { min-width: 100px; }
+    footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .empty { color: var(--muted); font-style: italic; }
+
+    /* Notes & Settings */
+    .toolbar {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin: 0.75rem 0;
+      flex-wrap: wrap;
+    }
+    .notes-section {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .notes-section h2 { font-size: 1.1rem; margin-bottom: 0.75rem; }
+    .note-item {
+      background: #111827;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .note-item .meta { color: var(--muted); font-size: 0.75rem; margin-bottom: 0.25rem; }
+    .note-item img { max-width: 100%; max-height: 180px; border-radius: 6px; margin-top: 0.4rem; }
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal.open { display: flex; }
+    .modal-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      width: 100%;
+      max-width: 420px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-content h3 { margin-bottom: 0.75rem; }
+    .modal-content label { display: block; font-size: 0.8rem; margin: 0.6rem 0 0.2rem; color: var(--muted); }
+    .modal-content input, .modal-content textarea, .modal-content select {
+      width: 100%;
+      background: #111827;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .modal-content textarea { min-height: 80px; resize: vertical; }
+    .modal-actions { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: flex-end; }
+    .status { font-size: 0.8rem; margin-top: 0.5rem; color: var(--technical); }
+    .status.error { color: #f87171; }
+    .warning { font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📺 2026 TV Summit EPG</h1>
+    <p class="subtitle">Queen Sirikit National Convention Centre, Bangkok · Nov 17–18, 2026</p>
+    <div id="now-banner" class="now-banner">Loading current time...</div>
+  </header>
+
+  <div class="day-tabs">
+    <button id="btn-day1" class="active" onclick="showDay(1)">Day 1 (Nov 17)</button>
+    <button id="btn-day2" onclick="showDay(2)">Day 2 (Nov 18)</button>
+  </div>
+
+  <div class="toolbar">
+    <button onclick="openModal('settings')">⚙️ GitHub 设置</button>
+    <button onclick="openModal('note')">＋ 添加 Note / 照片</button>
+  </div>
+
+  <div class="epg-container">
+    <table id="epg-table">
+      <thead>
+        <tr>
+          <th class="time-col">Time (ICT / local)</th>
+          <th class="commercial">Commercial Track</th>
+          <th class="technical">Technical Track</th>
+        </tr>
+      </thead>
+      <tbody id="epg-body"></tbody>
+    </table>
+  </div>
+
+  <div class="notes-section">
+    <h2>📝 我的 Notes</h2>
+    <div id="notes-list">暂无 notes</div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="modal-settings" class="modal">
+    <div class="modal-content">
+      <h3>GitHub 同步设置</h3>
+      <label>Owner (用户名)</label>
+      <input id="gh-owner" placeholder="yongxun1991">
+      <label>Repo 名称</label>
+      <input id="gh-repo" placeholder="tv-summit-notes">
+      <label>Fine-grained PAT</label>
+      <input id="gh-token" type="password" placeholder="github_pat_...">
+      <p class="warning">Notes 会同步到 private 仓库 tv-summit-notes。Token 仅保存在你的浏览器。建议只授权这一个 private repo 的 Contents: Read and write。</p>
+      <div class="modal-actions">
+        <button onclick="closeModal('settings')">取消</button>
+        <button onclick="saveSettings()" style="background:#10b981;border-color:#10b981">保存</button>
+      </div>
+      <div id="settings-status" class="status"></div>
+    </div>
+  </div>
+
+  <!-- Note Modal -->
+  <div id="modal-note" class="modal">
+    <div class="modal-content">
+      <h3>添加 Note / 照片</h3>
+      <label>时段</label>
+      <select id="note-slot"></select>
+      <label>Track</label>
+      <select id="note-track">
+        <option value="commercial">Commercial</option>
+        <option value="technical">Technical</option>
+        <option value="both">两者</option>
+      </select>
+      <label>文字笔记</label>
+      <textarea id="note-text" placeholder="写点什么..."></textarea>
+      <label>照片（可选）</label>
+      <input id="note-photo" type="file" accept="image/*">
+      <div class="modal-actions">
+        <button onclick="closeModal('note')">取消</button>
+        <button onclick="saveNote()" style="background:#3b82f6;border-color:#3b82f6">保存并同步</button>
+      </div>
+      <div id="note-status" class="status"></div>
+    </div>
+  </div>
+
+  <footer>
+    Source: Google TV Summit 2026 RSVP pages · Public EPG · Notes stay private
+  </footer>
+
+  <script>
+    // All times are in Asia/Bangkok (ICT, UTC+7)
+    const EVENT_TZ = 'Asia/Bangkok';
+
+    const schedule = {
+      1: [ // Day 1 - Nov 17
+        { time: '08:55', duration: 5, commercial: 'Entrance', technical: null },
+        { time: '09:00', duration: 10, commercial: 'Opening remarks', technical: 'Day 1 Welcome and Intro' },
+        { time: '09:05', duration: 15, commercial: 'Transforming the TV Experiences', technical: null },
+        { time: '09:10', duration: 15, commercial: null, technical: 'TV Trivia!' },
+        { time: '09:20', duration: 5, commercial: 'Agenda Overview', technical: null },
+        { time: '09:25', duration: 20, commercial: 'Bringing the Living Room Together - Product roadmap', technical: 'Keynote: Transforming the TV into an All-Day Living Canvas' },
+        { time: '09:40', duration: 30, commercial: null, technical: 'Android for TV Roadmap' },
+        { time: '09:45', duration: 20, commercial: 'The $200 Billion Screen Economy', technical: null },
+        { time: '10:05', duration: 25, commercial: 'Break', technical: null, isBreak: true },
+        { time: '10:10', duration: 20, commercial: null, technical: 'Coffee Break', isBreak: true },
+        { time: '10:30', duration: 15, commercial: 'Powering the Living Room Ecosystem Together', technical: 'Gemini for TV' },
+        { time: '10:45', duration: 15, commercial: 'GTV Scaling Programs', technical: null },
+        { time: '10:50', duration: 20, commercial: null, technical: 'Live TV Updates - Global CLTV and UK TV' },
+        { time: '11:00', duration: 15, commercial: 'Strategic Opportunities in the B2B Market', technical: null },
+        { time: '11:10', duration: 15, commercial: null, technical: 'Setup & Onboarding' },
+        { time: '11:15', duration: 30, commercial: 'B2B Reference cases', technical: null },
+        { time: '11:25', duration: 15, commercial: null, technical: 'Operator Programs' },
+        { time: '11:40', duration: 60, commercial: null, technical: 'Lunch Break', isBreak: true },
+        { time: '11:45', duration: 75, commercial: 'Lunch - Expo Tour', technical: null, isBreak: true },
+        { time: '12:40', duration: 15, commercial: null, technical: 'OTA and Build Configuration Best Practices' },
+        { time: '12:55', duration: 15, commercial: null, technical: 'Google TV Inputs App Gen2' },
+        { time: '13:00', duration: 15, commercial: 'Operator Innovations', technical: null },
+        { time: '13:10', duration: 20, commercial: null, technical: 'Google TV B2B Program' },
+        { time: '13:15', duration: 20, commercial: 'Partner Case Study: GTV4O', technical: null },
+        { time: '13:30', duration: 15, commercial: null, technical: 'Coffee Break', isBreak: true },
+        { time: '13:35', duration: 45, commercial: 'Building the Helpful Home, Together', technical: null },
+        { time: '13:45', duration: 60, commercial: null, technical: 'Breakout Session 1' },
+        { time: '14:20', duration: 15, commercial: 'Break', technical: null, isBreak: true },
+        { time: '14:35', duration: 20, commercial: 'The Human in the Machine', technical: null },
+        { time: '14:45', duration: 20, commercial: null, technical: 'AI Tools' },
+        { time: '14:55', duration: 15, commercial: 'K-Content X AI: the Next Global Wave', technical: null },
+        { time: '15:05', duration: 10, commercial: null, technical: 'GTV Always-On Experience' },
+        { time: '15:10', duration: 15, commercial: 'TV Centric Home Physical AI', technical: null },
+        { time: '15:15', duration: 15, commercial: null, technical: 'Pointer Remotes + New TV Interactions / Input Modalities' },
+        { time: '15:25', duration: 20, commercial: "Google DeepMind Showcase: The Making of 'Dear Upstairs Neighbors'", technical: null },
+        { time: '15:30', duration: 15, commercial: null, technical: 'Netflix Updates' },
+        { time: '15:45', duration: 15, commercial: 'Wrap up Day 1', technical: 'Day 1 Wrap Up and Q&A' },
+        { time: '16:00', duration: 120, commercial: 'Cocktail Reception', technical: 'Cocktail Reception', isBreak: true },
+        { time: '18:00', duration: 0, commercial: null, technical: 'End of Program' },
+      ],
+      2: [ // Day 2 - Nov 18
+        { time: '09:00', duration: 5, commercial: null, technical: 'Day 2 Welcome' },
+        { time: '09:05', duration: 15, commercial: null, technical: 'Agentic Settings & Device Controls' },
+        { time: '09:20', duration: 10, commercial: null, technical: "What's New in Android 16?" },
+        { time: '09:30', duration: 75, commercial: null, technical: 'An18 Feature Plan Updates' },
+        { time: '10:00', duration: 10, commercial: 'Day 2 Opening / Housekeeping', technical: null },
+        { time: '10:10', duration: 20, commercial: 'State of the Screen: The Future of Content on Google TV', technical: null },
+        { time: '10:30', duration: 20, commercial: 'Reaching new audiences with Google TV', technical: null },
+        { time: '10:45', duration: 20, commercial: null, technical: 'Coffee Break', isBreak: true },
+        { time: '10:50', duration: 20, commercial: "BBM's Blueprint for FAST Success", technical: null },
+        { time: '11:05', duration: 60, commercial: null, technical: 'Breakout Session 2' },
+        { time: '11:10', duration: 30, commercial: 'Break', technical: null, isBreak: true },
+        { time: '11:40', duration: 20, commercial: 'The Next-Gen YouTube Experience on TVs', technical: null },
+        { time: '12:00', duration: 20, commercial: 'Ambient, Gaming, Content Verticals on Google TV', technical: null },
+        { time: '12:05', duration: 60, commercial: null, technical: 'Lunch Break', isBreak: true },
+        { time: '12:20', duration: 20, commercial: 'Netflix Updates', technical: null },
+        { time: '12:40', duration: 80, commercial: 'Lunch - Expo Tour', technical: null, isBreak: true },
+        { time: '13:05', duration: 15, commercial: null, technical: 'TV Certification' },
+        { time: '13:20', duration: 10, commercial: null, technical: 'Localization Support in Google TV' },
+        { time: '13:30', duration: 15, commercial: null, technical: 'OS Roadmap, GTVS Window and SPL Policy' },
+        { time: '13:45', duration: 15, commercial: null, technical: 'YouTube Certification' },
+        { time: '14:00', duration: 30, commercial: 'Operators Perspectives on the Future of TV', technical: null },
+        { time: '14:00', duration: 20, commercial: null, technical: 'GTVS Program and Field Quality Updates' },
+        { time: '14:20', duration: 20, commercial: null, technical: 'Coffee Break', isBreak: true },
+        { time: '14:30', duration: 15, commercial: 'Connected Discovery', technical: null },
+        { time: '14:40', duration: 60, commercial: null, technical: 'Breakout Session 3' },
+        { time: '14:45', duration: 20, commercial: 'Winning the 2026 TV shopper', technical: null },
+        { time: '15:05', duration: 30, commercial: 'Break - Expo Tour', technical: null, isBreak: true },
+        { time: '15:35', duration: 20, commercial: 'New TV Interactions: Modalities, Remotes, Contextual Search', technical: null },
+        { time: '15:40', duration: 10, commercial: null, technical: 'TV Kernel and GKI' },
+        { time: '15:50', duration: 20, commercial: null, technical: 'TV Performance Update' },
+        { time: '15:55', duration: 20, commercial: 'On-Device AI for Smart Living Room', technical: null },
+        { time: '16:10', duration: 10, commercial: null, technical: 'SOC Reference Design Updates' },
+        { time: '16:15', duration: 15, commercial: 'Blacknut - Cloud Gaming on TV & Success Stories', technical: null },
+        { time: '16:20', duration: 10, commercial: null, technical: 'TVTS Update' },
+        { time: '16:30', duration: 10, commercial: 'Wrap up Day 2', technical: 'Remote Control Updates' },
+        { time: '16:45', duration: 15, commercial: null, technical: 'Day 2 Wrap Up and Q&A' },
+        { time: '17:00', duration: 0, commercial: null, technical: 'End of Program' },
+      ]
+    };
+
+    let currentDay = 1;
+
+    function parseTime(timeStr) {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    function getNowInICT() {
+      const now = new Date();
+      const fmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: EVENT_TZ,
+        hour: '2-digit', minute: '2-digit', hour12: false
+      });
+      const parts = fmt.formatToParts(now);
+      const h = parseInt(parts.find(p => p.type === 'hour').value);
+      const m = parseInt(parts.find(p => p.type === 'minute').value);
+      return { minutes: h * 60 + m, label: `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}` };
+    }
+
+    function getEventDate(day) {
+      const d = new Date(2026, 10, 16 + day);
+      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    function isCurrent(slot, nowMin, day) {
+      const start = parseTime(slot.time);
+      const end = start + (slot.duration || 0);
+      return nowMin >= start && nowMin < end && day === getCurrentEventDay();
+    }
+
+    function getCurrentEventDay() {
+      const now = new Date();
+      const ictDate = new Intl.DateTimeFormat('en-CA', { timeZone: EVENT_TZ, year:'numeric', month:'2-digit', day:'2-digit' }).format(now);
+      if (ictDate === '2026-11-17') return 1;
+      if (ictDate === '2026-11-18') return 2;
+      return null;
+    }
+
+    function render() {
+      const now = getNowInICT();
+      const body = document.getElementById('epg-body');
+      body.innerHTML = '';
+
+      const slots = schedule[currentDay];
+      const timeMap = new Map();
+      slots.forEach(s => {
+        if (!timeMap.has(s.time)) timeMap.set(s.time, { time: s.time, commercial: null, technical: null, isBreak: false, duration: s.duration });
+        const row = timeMap.get(s.time);
+        if (s.commercial) { row.commercial = s.commercial; row.isBreak = row.isBreak || s.isBreak; row.duration = Math.max(row.duration || 0, s.duration || 0); }
+        if (s.technical) { row.technical = s.technical; row.isBreak = row.isBreak || s.isBreak; row.duration = Math.max(row.duration || 0, s.duration || 0); }
+      });
+
+      const rows = Array.from(timeMap.values()).sort((a,b) => parseTime(a.time) - parseTime(b.time));
+
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        const isNow = isCurrent(row, now.minutes, currentDay);
+        if (isNow) tr.dataset.current = '1';
+
+        const tdTime = document.createElement('td');
+        tdTime.className = 'time-cell';
+        tdTime.innerHTML = `<div>${row.time}</div><div class="duration">${row.duration ? row.duration + ' min' : ''}</div>`;
+        tr.appendChild(tdTime);
+
+        const tdC = document.createElement('td');
+        const cClass = ['session'];
+        if (row.commercial && row.isBreak) cClass.push('break');
+        if (isNow && row.commercial) cClass.push('current');
+        tdC.className = cClass.join(' ');
+        if (row.commercial) {
+          tdC.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">
+            <span>${row.commercial}</span>
+            <button onclick="openNoteFor('${row.time}', 'commercial')" style="flex-shrink:0;padding:0.2rem 0.45rem;font-size:0.75rem;background:#3b82f6;border-color:#3b82f6;">＋</button>
+          </div>`;
+        } else {
+          tdC.innerHTML = '<span class="empty">—</span>';
+        }
+        tr.appendChild(tdC);
+
+        const tdT = document.createElement('td');
+        const tClass = ['session'];
+        if (row.technical && row.isBreak) tClass.push('break');
+        if (isNow && row.technical) tClass.push('current');
+        tdT.className = tClass.join(' ');
+        if (row.technical) {
+          tdT.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">
+            <span>${row.technical}</span>
+            <button onclick="openNoteFor('${row.time}', 'technical')" style="flex-shrink:0;padding:0.2rem 0.45rem;font-size:0.75rem;background:#10b981;border-color:#10b981;">＋</button>
+          </div>`;
+        } else {
+          tdT.innerHTML = '<span class="empty">—</span>';
+        }
+        tr.appendChild(tdT);
+
+        body.appendChild(tr);
+      });
+
+      setTimeout(() => {
+        const currentRow = document.querySelector('tr[data-current="1"]');
+        if (currentRow) {
+          currentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+
+      const banner = document.getElementById('now-banner');
+      const eventDay = getCurrentEventDay();
+      if (eventDay === currentDay) {
+        const currentSlots = rows.filter(r => isCurrent(r, now.minutes, currentDay));
+        if (currentSlots.length) {
+          const texts = currentSlots.map(r => {
+            const parts = [];
+            if (r.commercial) parts.push(`<strong>Commercial:</strong> ${r.commercial}`);
+            if (r.technical) parts.push(`<strong>Technical:</strong> ${r.technical}`);
+            return parts.join(' · ');
+          });
+          banner.innerHTML = `🕐 Now (${now.label} ICT): ${texts.join('<br>')}`;
+        } else {
+          banner.innerHTML = `🕐 Current time: ${now.label} ICT — no session in progress`;
+        }
+      } else if (eventDay) {
+        banner.innerHTML = `🕐 Current time: ${now.label} ICT — Event day is ${eventDay === 1 ? 'Day 1 (Nov 17)' : 'Day 2 (Nov 18)'}. Viewing Day ${currentDay}.`;
+      } else {
+        banner.innerHTML = `🕐 Your local time: ${now.label} (shown in ICT for the event). Event is Nov 17–18.`;
+      }
+    }
+
+    function showDay(d) {
+      currentDay = d;
+      document.getElementById('btn-day1').classList.toggle('active', d === 1);
+      document.getElementById('btn-day2').classList.toggle('active', d === 2);
+      render();
+    }
+
+    const today = getCurrentEventDay();
+    if (today) showDay(today);
+    else showDay(1);
+
+    setInterval(render, 60000);
+    render();
+
+    // ========== Notes + GitHub Sync ==========
+    const NOTES_KEY = 'tvsummit_notes';
+    const CONFIG_KEY = 'tvsummit_gh_config';
+
+    function getConfig() {
+      try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}'); } catch { return {}; }
+    }
+    function setConfig(c) { localStorage.setItem(CONFIG_KEY, JSON.stringify(c)); }
+
+    function getNotes() {
+      try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '[]'); } catch { return []; }
+    }
+    function setNotes(n) { localStorage.setItem(NOTES_KEY, JSON.stringify(n)); }
+
+    function openNoteFor(time, track) {
+      openModal('note');
+      setTimeout(() => {
+        const sel = document.getElementById('note-slot');
+        if (sel) sel.value = time;
+        const trackSel = document.getElementById('note-track');
+        if (trackSel) trackSel.value = track;
+      }, 50);
+    }
+    function openModal(name) {
+      document.getElementById('modal-' + name).classList.add('open');
+      if (name === 'settings') {
+        const c = getConfig();
+        document.getElementById('gh-owner').value = c.owner || 'yongxun1991';
+        document.getElementById('gh-repo').value = c.repo || 'tv-summit-notes';
+        document.getElementById('gh-token').value = c.token || '';
+      }
+      if (name === 'note') populateSlotSelect();
+    }
+    function closeModal(name) {
+      document.getElementById('modal-' + name).classList.remove('open');
+    }
+
+    function saveSettings() {
+      const c = {
+        owner: document.getElementById('gh-owner').value.trim(),
+        repo: document.getElementById('gh-repo').value.trim(),
+        token: document.getElementById('gh-token').value.trim()
+      };
+      setConfig(c);
+      const st = document.getElementById('settings-status');
+      if (c.owner && c.repo && c.token) {
+        st.textContent = '已保存。Notes 会同步到 private 仓库。';
+        st.className = 'status';
+      } else {
+        st.textContent = '请填写完整信息。';
+        st.className = 'status error';
+      }
+    }
+
+    function populateSlotSelect() {
+      const sel = document.getElementById('note-slot');
+      sel.innerHTML = '';
+      const slots = schedule[currentDay] || [];
+      const seen = new Set();
+      slots.forEach(s => {
+        const key = s.time;
+        if (!seen.has(key)) {
+          seen.add(key);
+          const opt = document.createElement('option');
+          opt.value = key;
+          opt.textContent = key + (s.commercial || s.technical ? ' · ' + (s.commercial || s.technical || '').slice(0, 40) : '');
+          sel.appendChild(opt);
+        }
+      });
+    }
+
+    async function uploadToGitHub(path, contentBase64, message) {
+      const c = getConfig();
+      if (!c.owner || !c.repo || !c.token) throw new Error('未配置 GitHub');
+      const url = `https://api.github.com/repos/${c.owner}/${c.repo}/contents/${path}`;
+      let sha = null;
+      try {
+        const head = await fetch(url, { headers: { Authorization: `Bearer ${c.token}`, Accept: 'application/vnd.github+json' } });
+        if (head.ok) {
+          const data = await head.json();
+          sha = data.sha;
+        }
+      } catch (_) {}
+      const body = { message, content: contentBase64 };
+      if (sha) body.sha = sha;
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${c.token}`,
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || res.statusText);
+      }
+      return res.json();
+    }
+
+    async function saveNote() {
+      const st = document.getElementById('note-status');
+      st.textContent = '保存中...';
+      st.className = 'status';
+      const text = document.getElementById('note-text').value.trim();
+      const slot = document.getElementById('note-slot').value;
+      const track = document.getElementById('note-track').value;
+      const fileInput = document.getElementById('note-photo');
+      if (!text && !fileInput.files[0]) {
+        st.textContent = '请填写文字或选择照片';
+        st.className = 'status error';
+        return;
+      }
+      const id = Date.now().toString(36);
+      const note = {
+        id, day: currentDay, time: slot, track, text,
+        photo: null, created: new Date().toISOString()
+      };
+      try {
+        const c = getConfig();
+        if (c.token) {
+          const md = `# ${slot} · ${track}\n\n${text || '(photo only)'}\n\nCreated: ${note.created}\n`;
+          const mdB64 = btoa(unescape(encodeURIComponent(md)));
+          await uploadToGitHub(`notes/${id}.md`, mdB64, `note: ${slot} ${track}`);
+          if (fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const b64 = await new Promise(res => {
+              const r = new FileReader();
+              r.onload = () => res(r.result.split(',')[1]);
+              r.readAsDataURL(file);
+            });
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const photoPath = `photos/${id}.${ext}`;
+            await uploadToGitHub(photoPath, b64, `photo: ${slot}`);
+            note.photo = photoPath;
+          }
+          st.textContent = '已保存并同步到 private 仓库';
+        } else {
+          st.textContent = '已本地保存（未配置 GitHub）';
+        }
+        const notes = getNotes();
+        notes.unshift(note);
+        setNotes(notes);
+        renderNotes();
+        document.getElementById('note-text').value = '';
+        fileInput.value = '';
+        setTimeout(() => closeModal('note'), 1200);
+      } catch (e) {
+        st.textContent = '同步失败: ' + e.message + '（已本地保存）';
+        st.className = 'status error';
+        const notes = getNotes();
+        notes.unshift(note);
+        setNotes(notes);
+        renderNotes();
+      }
+    }
+
+    function renderNotes() {
+      const list = document.getElementById('notes-list');
+      const notes = getNotes();
+      if (!notes.length) { list.innerHTML = '暂无 notes'; return; }
+      list.innerHTML = notes.map(n => `
+        <div class="note-item">
+          <div class="meta">Day ${n.day} · ${n.time} · ${n.track} · ${new Date(n.created).toLocaleString()}</div>
+          <div>${(n.text || '').replace(/\n/g, '<br>')}</div>
+          ${n.photo ? `<div class="meta">📷 ${n.photo}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    document.querySelectorAll('.modal').forEach(m => {
+      m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+    });
+
+    renderNotes();
+  </script>
+</body>
+</html>
